@@ -1,0 +1,23 @@
+{
+	"EN": {
+		"packeterror": "[Packet] Error when receiving packet ",
+		"packeterror2": "Attempt to send packet on disconnected client.",
+		"unhandledpacket": "[Packet]%s Unhandled packet %d -> %d",
+		"unhandledtribullepacket": "[Packet] Unhandled tribulle code -> %d",
+		"receivedpacket": "[Packet]%s %s received a packet [%d, %d]",
+		"sendpacket": "[Packet] The Ip Address %s sent a packet [%d, %d]",
+		"sendlegacypacket": "[Packet] The Ip Address %s sent an legacy packet [%d, %d] -> %s",
+		"sendtribullepacket": "[Packet] The Ip Address %s sent a tribulle packet [%s]",
+		"totalpackets": "[Packet] Registered total packets: %d",
+		"wrongjsonsyntax": "[ConfigLoader] Wrong json syntax in the file %s",
+		"failedtoinitclass": "[ConfigLoader] Failed to instantiate %s",
+		"newconnection": "[Connection] A new connection %s was made using %s",
+		"fakeswfconnection": "[Connection] The ip %s tried to connect with unofficial version.",
+		"authkeycheckfailed": "[Connection] The given IP Address %s failed to pass the protection. (Auth key -> %d | Expected -> %d)",
+		"authkeycheckpassed": "[Connection] The given IP address %s successfully passed the verification.",
+		"langnotimplemented": "[Languages] The language %s is not implemented in the game.",
+		"languagelistfailed": "[Languages] Unable to load the languages config, switching to default languages.",
+		"languagelistfounde": "[Languages] Loaded total community languages: %d",
+		"startfailure": "Unable to start the server because there are no ports to start."
+	}
+}

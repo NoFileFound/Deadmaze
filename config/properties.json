@@ -1,0 +1,24 @@
+{
+	"database_url": "mongodb://localhost:27017",
+	"collection_name": "deadmaze1",
+	"is_debug": true,
+	"twitchStreaming": false,
+	"allow_email": true,
+	"login_attempts": 10,
+	"timers": {
+		"keep_alive": {
+			"enable": true,
+			"delay": 90
+		},
+		"create_account": {
+			"enable": true,
+			"delay": 15
+		}
+	},
+	"email_info": {
+		"smtpHost": "",
+		"smtpPort": 0,
+		"smtpUsername": "",
+		"smtpPassword": ""
+	}
+}

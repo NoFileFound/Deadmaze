@@ -1,0 +1,10 @@
+Sentinelle
+LuaDev
+FashionSquad
+FunCorp
+MapCrew
+Arbitre
+PrivateModerator
+PublicModerator
+Admin
+Founder

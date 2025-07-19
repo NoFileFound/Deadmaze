@@ -92,7 +92,7 @@ public final class S_LoginAccount implements RecvPacket {
                 return;
             }
 
-            client.sendLogin(account, nickname);
+            client.sendLogin(account, nickname, false);
         } catch (Exception e) {
             // internal error
             client.sendPacket(new C_AccountError(6));

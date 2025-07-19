@@ -41,7 +41,7 @@ public final class S_Handshake implements RecvPacket {
 
         client.playerType = playerType;
         client.sendPacket(new C_Handshake(client.getServer().getPlayersCount(), language, client.getCountryLangue()));
-        /// TODO: [105, 13] -> 99 id, 24 value
+        /// TODO: [105, 13] -> b'c\x18'
         client.sendPacket(new C_SetAllowEmailAddress());
         client.verCode = SrcRandom.RandomNumber(1000000, 999999999);
         client.sendPacket(new C_ClientVerification(client.verCode));

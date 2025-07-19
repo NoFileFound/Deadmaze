@@ -7,6 +7,7 @@ import org.deadmaze.Application;
 import org.deadmaze.Client;
 import org.deadmaze.database.DBUtils;
 import org.deadmaze.database.collections.Account;
+import org.deadmaze.libraries.SrcRandom;
 import org.deadmaze.packets.RecvPacket;
 
 // Packets
@@ -57,11 +58,20 @@ public final class S_RegisterAccount implements RecvPacket {
                     return;
                 }
 
+                if(Application.getPropertiesInfo().use_tag_system) {
+                    String randomNumber = SrcRandom.generateNumber(4);
+                    while(randomNumber.equals("0095") || randomNumber.equals("0001") || randomNumber.equals("0010") | randomNumber.equals("0015") || randomNumber.equals("0020")) {
+                        randomNumber = SrcRandom.generateNumber(4);
+                    }
+
+                    nickname = nickname + "#" + randomNumber;
+                }
+
                 try {
                     Account instance = new Account(nickname, email, password_hash, client.getIpAddress());
                     instance.save();
                     client.getServer().createAccountTimer.get(client.getIpAddress()).schedule(() -> {}, TimeUnit.HOURS);
-                    client.sendLogin(instance, nickname);
+                    client.sendLogin(instance, nickname, true);
                 } catch (Exception e) {
                     // internal error
                     client.getServer().createAccountTimer.get(client.getIpAddress()).cancel();

@@ -1,6 +1,7 @@
 package org.deadmaze;
 
 // Imports
+import java.util.List;
 import java.util.Map;
 import lombok.Getter;
 import org.deadmaze.database.DBManager;
@@ -21,6 +22,7 @@ public final class Application {
     @Getter private static PropertiesConfig.PropertiesClass propertiesInfo;
     @Getter private static Map<String, String[]> languageInfo;
     @Getter private static Map<String, Map<String, String>> captchaInfo;
+    @Getter private static List<String> badWordsConfig;
 
     @SuppressWarnings("unchecked")
     private static void loadConfigVariables() {
@@ -28,6 +30,7 @@ public final class Application {
         propertiesInfo = (PropertiesConfig.PropertiesClass) ConfigLoader.getProperty(PropertiesConfig.class).getInstance();
         languageInfo = (Map<String, String[]>) ConfigLoader.getProperty(LanguageConfig.class).getInstance();
         captchaInfo = (Map<String, Map<String, String>>) ConfigLoader.getProperty(CaptchaConfig.class).getInstance();
+        badWordsConfig = (List<String>) ConfigLoader.getProperty(BadStringsConfig.class).getInstance();
     }
 
     public static void main(String[] args) {

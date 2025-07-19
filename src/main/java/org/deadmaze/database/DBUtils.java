@@ -1,11 +1,16 @@
 package org.deadmaze.database;
 
 // Imports
+import static dev.morphia.query.experimental.filters.Filters.elemMatch;
 import static dev.morphia.query.experimental.filters.Filters.eq;
-import org.deadmaze.database.collections.Account;
+import dev.morphia.query.FindOptions;
+import dev.morphia.query.Sort;
+import java.util.ArrayList;
 import java.util.List;
+import org.deadmaze.database.collections.*;
+import org.deadmaze.database.embeds.*;
 
-public class DBUtils {
+public final class DBUtils {
     /**
      * Searches for account instance by given name.
      * @param nickname The given nickname.
@@ -36,5 +41,75 @@ public class DBUtils {
         }
 
         return DBManager.getDataStore().find(Account.class).filter(eq("emailAddress", email), eq("password", password)).stream().toList();
+    }
+
+    /**
+     * Searches for cafe posts made by given player.
+     * @param playerName The player's name.
+     * @return List of cafe posts.
+     */
+    public static List<CafePost> findCafePostsByPlayerName(String playerName) {
+        List<CafePost> matchingPosts = new ArrayList<>();
+        List<CafeTopic> topics = DBManager.getDataStore()
+                .find(CafeTopic.class)
+                .filter(elemMatch("posts", eq("author", playerName)))
+                .iterator()
+                .toList();
+
+        for (CafeTopic topic : topics) {
+            for (CafePost post : topic.getPosts()) {
+                if (playerName.equals(post.getAuthor())) {
+                    matchingPosts.add(post);
+                }
+            }
+        }
+
+        return matchingPosts;
+    }
+
+    /**
+     * Searches for cafe posts by topic id.
+     * @param topicId The given id.
+     * @return The cafe posts if exist or else null.
+     */
+    public static CafeTopic findCafeTopicById(Long topicId) {
+        return DBManager.getDataStore().find(CafeTopic.class).filter(eq("_id", topicId)).first();
+    }
+
+    /**
+     * Searches for cafe topic by post id.
+     * @param postId The given id.
+     * @return The cafe topic if exist or else null.
+     */
+    public static CafeTopic findCafeTopicByPostId(Long postId) {
+        return DBManager.getDataStore().find(CafeTopic.class).filter(elemMatch("posts", eq("_id", postId))).first();
+    }
+
+    /**
+     * Searches for all cafe topics by given community.
+     * @param community The given player's community.
+     * @return The cafe topics if they exist.
+     */
+    public static List<CafeTopic> findCafeTopicsByCommunity(String community) {
+        return DBManager.getDataStore().find(CafeTopic.class).filter(eq("community", community)).stream().toList();
+    }
+
+    /**
+     * Searches for last active sanction by given name.
+     * @param playerName The given player name.
+     * @param punishType The given sanction type.
+     * @return A sanction object if exist or else null.
+     */
+    public static Sanction findLatestSanction(String playerName, String punishType) {
+        return DBManager.getDataStore().find(Sanction.class).filter(eq("playerName", playerName), eq("type", punishType), eq("state", "Active")).iterator(new FindOptions().sort(Sort.ascending("createdDate"))).tryNext();
+    }
+
+    /**
+     * Searches for tribe by given name.
+     * @param tribeName The tribe name.
+     * @return A tribe object.
+     */
+    public static Tribe findTribeByName(String tribeName) {
+        return DBManager.getDataStore().find(Tribe.class).filter(eq("tribeName", tribeName)).first();
     }
 }

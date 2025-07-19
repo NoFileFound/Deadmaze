@@ -4,6 +4,7 @@
 	"is_debug": true,
 	"twitchStreaming": false,
 	"allow_email": true,
+	"use_tag_system": true,
 	"login_attempts": 10,
 	"timers": {
 		"keep_alive": {
@@ -13,6 +14,25 @@
 		"create_account": {
 			"enable": true,
 			"delay": 15
+		},
+		"reload_cafe": {
+			"enable": true,
+			"delay": 500
+		},
+		"create_cafe_topic": {
+			"enable": true,
+			"delay": 10
+		},
+		"create_cafe_post": {
+			"enable": true,
+			"delay": 10
+		},
+		"marriage": {
+			"enable": true
+		},
+		"chat_message": {
+			"enable": true,
+			"delay": 2
 		}
 	},
 	"email_info": {

@@ -31,6 +31,7 @@ public final class PropertiesConfig implements Property {
         public boolean is_debug = true;
         public boolean twitchStreaming;
         public boolean allow_email = true;
+        public boolean use_tag_system = true;
         public int login_attempts;
         public Timers timers;
         public SMTP email_info;
@@ -38,6 +39,11 @@ public final class PropertiesConfig implements Property {
         public static class Timers {
             public TimerObject keep_alive = new TimerObject();
             public TimerObject create_account = new TimerObject();
+            public TimerObject reload_cafe = new TimerObject();
+            public TimerObject create_cafe_topic = new TimerObject();
+            public TimerObject create_cafe_post = new TimerObject();
+            public TimerObject marriage = new TimerObject();
+            public TimerObject chat_message = new TimerObject();
         }
 
         public static class TimerObject {

@@ -18,6 +18,10 @@
 		"langnotimplemented": "[Languages] The language %s is not implemented in the game.",
 		"languagelistfailed": "[Languages] Unable to load the languages config, switching to default languages.",
 		"languagelistfounde": "[Languages] Loaded total community languages: %d",
-		"startfailure": "Unable to start the server because there are no ports to start."
+		"startfailure": "Unable to start the server because there are no ports to start.",
+		"totalcommands": "[Commands] Registered total commands: %s",
+		"commandfailedtoreg": "[Commands] Failed to register the command: %s",
+		"commandnotfound": "The command %s is not found",
+		"commandargsnotmet": "You need more arguments to use this command."
 	}
 }

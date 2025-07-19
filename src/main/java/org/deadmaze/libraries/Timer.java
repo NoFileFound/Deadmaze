@@ -13,14 +13,6 @@ public final class Timer {
     private ScheduledFuture<?> scheduledTask;
 
     /**
-     * Creates a new timer.
-     */
-    public Timer() {
-        this.delay = -1;
-        this.enable = true;
-    }
-
-    /**
      * Creates a new timer by given time.
      * @param enable Enable the timer.
      * @param delay The timer delay.

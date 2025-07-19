@@ -2,11 +2,8 @@ package org.deadmaze.libraries;
 
 // Imports
 import java.security.SecureRandom;
-import java.util.ArrayList;
-import java.util.List;
 
 public final class SrcRandom {
-    private static final String alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     private static final String digits = "0123456789";
     private static final String alphabetdigits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     private static final SecureRandom secureRandom = new SecureRandom();
@@ -19,26 +16,6 @@ public final class SrcRandom {
      */
     public static int RandomNumber(int min, int max) {
         return secureRandom.nextInt((max - min) + 1) + min;
-    }
-
-    /**
-     * Generates a number in range.
-     * @param min Minimum number.
-     * @param max Maximum number.
-     * @param exceptions Number expections.
-     * @return Random number in range between minimum and maximum without the numbers that contains in exceptions.
-     */
-    public static int RandomNumber(int min, int max, List<Integer> exceptions) {
-        List<Integer> validNumbers = new ArrayList<>();
-
-        for (int i = min; i <= max; i++) {
-            if (!exceptions.contains(i)) {
-                validNumbers.add(i);
-            }
-        }
-
-        int randomIndex = secureRandom.nextInt(validNumbers.size());
-        return validNumbers.get(randomIndex);
     }
 
     /**

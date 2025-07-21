@@ -1,33 +1,34 @@
-package org.deadmaze.packets.recv.tribulle;
+package org.deadmaze.packets.recv.informations;
 
 // Imports
 import org.bytearray.ByteArray;
 import org.deadmaze.Application;
 import org.deadmaze.Client;
+import org.deadmaze.enums.SceneLoading;
 import org.deadmaze.packets.RecvPacket;
 
 @SuppressWarnings("unused")
-public final class S_NewTribulle implements RecvPacket {
+public final class S_TabCommand implements RecvPacket {
     @Override
     public void handle(Client client, int fingerPrint, ByteArray data) {
-        if(client.isGuest()) {
+        if(client.sceneLoadingInfo != SceneLoading.LOADED || client.isGuest()) {
+            Application.getLogger().debug(Application.getTranslationManager().get("abnormalactivity", client.getPlayerName(), "S_TabCommand"));
             client.getServer().getTempBlackList().add(client.getIpAddress());
             client.closeConnection();
             return;
         }
 
-        data.decryptPacket(Application.getSwfInfo().packet_keys, fingerPrint);
-        client.getParseTribulleInstance().handleTribullePacket(data.readShort(), data.readInt(), data);
+        client.getServer().getCommandHandler().invokeCommand(client, data.readString(), true);
     }
 
     @Override
     public int getC() {
-        return 60;
+        return 28;
     }
 
     @Override
     public int getCC() {
-        return 3;
+        return 48;
     }
 
     @Override

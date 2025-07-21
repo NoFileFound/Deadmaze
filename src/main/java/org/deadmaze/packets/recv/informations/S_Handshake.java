@@ -8,6 +8,7 @@ import org.deadmaze.libraries.SrcRandom;
 import org.deadmaze.packets.RecvPacket;
 
 // Packets
+import org.deadmaze.packets.send._105.C_SetInitialHazardousDamageIndex;
 import org.deadmaze.packets.send.informations.C_SetAllowEmailAddress;
 import org.deadmaze.packets.send.language.C_ClientVerification;
 import org.deadmaze.packets.send.login.C_Handshake;
@@ -41,7 +42,7 @@ public final class S_Handshake implements RecvPacket {
 
         client.playerType = playerType;
         client.sendPacket(new C_Handshake(client.getServer().getPlayersCount(), language, client.getCountryLangue()));
-        /// TODO: [105, 13] -> b'c\x18'
+        client.sendPacket(new C_SetInitialHazardousDamageIndex(Application.getPropertiesInfo().hazardousdamageindex));
         client.sendPacket(new C_SetAllowEmailAddress());
         client.verCode = SrcRandom.RandomNumber(1000000, 999999999);
         client.sendPacket(new C_ClientVerification(client.verCode));

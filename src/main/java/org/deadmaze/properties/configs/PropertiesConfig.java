@@ -33,6 +33,7 @@ public final class PropertiesConfig implements Property {
         public boolean allow_email = true;
         public boolean use_tag_system = true;
         public int login_attempts;
+        public int hazardousdamageindex;
         public Timers timers;
         public SMTP email_info;
 

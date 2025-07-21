@@ -1288,7 +1288,7 @@ public final class ParseTribulle {
             Client friendClient = this.server.getPlayers().get(friendName);
             friendAccount = friendClient.getAccount();
 
-            return new ByteArray().writeInt(friendAccount.getId()).writeString(friendAccount.getPlayerName()).writeByte(friendAccount.getPlayerGender()).writeInt(friendAccount.getAvatarId()).writeBoolean(friendAccount.getFriendList().contains(playerName)).writeBoolean(true).writeInt(4).writeString(friendClient.getRoomName().contains("-@") ? "" : friendClient.getRoomName()).writeInt(friendAccount.getLastOn());
+            return new ByteArray().writeInt(friendAccount.getId()).writeString(friendAccount.getPlayerName()).writeByte(friendAccount.getPlayerGender()).writeInt(friendAccount.getAvatarId()).writeBoolean(friendAccount.getFriendList().contains(playerName)).writeBoolean(true).writeInt(17).writeString(friendClient.getRoomName().contains("-@") ? "" : friendClient.getRoomName()).writeInt(friendAccount.getLastOn());
         }
 
         if(this.server.getCachedAccounts().containsKey(friendName)) {

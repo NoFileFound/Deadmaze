@@ -31,13 +31,15 @@ import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 
 // Packets
 import org.deadmaze.packets.send.chat.C_ServerMessage;
+import org.deadmaze.packets.send.chat.C_StaffChannelMessage;
 
-public class Server {
+public final class Server {
     private boolean isClosed;
     private final Map<Integer, Client> clientSessions;
     private final List<Channel> channels;
     @Getter public int lastClientSessionId;
     @Getter private final Object2ObjectMap<String, Client> players;
+    @Getter private final Object2ObjectMap<String, Room> rooms;
     @Getter private final List<String> tempBlackList;
     @Getter private final ArrayList<Integer> blacklistedPackets;
     @Getter private final PacketHandler packetHandler;
@@ -66,6 +68,7 @@ public class Server {
         this.packetHandler = new PacketHandler(RecvPacket.class);
         this.commandHandler = new CommandLoader();
         this.players = new Object2ObjectOpenHashMap<>();
+        this.rooms = new Object2ObjectOpenHashMap<>();
         this.tempBlackList = new ArrayList<>();
         this.blacklistedPackets = new ArrayList<>();
         this.chats = new Object2ObjectOpenHashMap<>();
@@ -81,6 +84,64 @@ public class Server {
         this.createAccountTimer = new HashMap<>();
         this.createCafeTopicTimer = new HashMap<>();
         this.createCafePostTimer = new HashMap<>();
+    }
+
+    /**
+     * Creates a new client session.
+     * @param channel The network channel associated with the client.
+     */
+    public void addClientSession(final Channel channel) {
+        Client client = new Client(this, channel);
+        this.clientSessions.put(channel.getId(), client);
+        channel.setAttachment(client);
+    }
+
+    /**
+     * Adds player to the given room.
+     *
+     * @param player   The player.
+     * @param roomName The room name.
+     */
+    public void addClientToRoom(Client player, String roomName) {
+        if (this.rooms.containsKey(roomName)) {
+            this.rooms.get(roomName).addPlayer(player);
+        } else {
+            Room room = new Room(this, roomName, player.getPlayerName());
+            this.rooms.put(roomName, room);
+            room.addPlayer(player);
+        }
+    }
+
+    /**
+     * Shutdowns the server.
+     */
+    public void closeServer() {
+        for (Timer timer : createCafeTopicTimer.values()) {
+            if (timer != null) {
+                timer.cancel();
+            }
+        }
+        for (Timer timer : createCafePostTimer.values()) {
+            if (timer != null) {
+                timer.cancel();
+            }
+        }
+        for (Timer timer : createAccountTimer.values()) {
+            if (timer != null) {
+                timer.cancel();
+            }
+        }
+
+        for (Client player : this.players.values()) {
+            player.saveDatabase();
+        }
+
+        for (Channel channel : this.channels) {
+            channel.unbind();
+        }
+
+        this.isClosed = true;
+        System.exit(0);
     }
 
     /**
@@ -145,6 +206,35 @@ public class Server {
     }
 
     /**
+     * Checks if given room has enough players and recommends a new one if there are many players.
+     *
+     * @param roomName  The player's room name.
+     * @return The room that has enough players.
+     */
+    public String getRecommendedRoom(String roomName) {
+        if (roomName.isEmpty()) roomName = "1";
+
+        String baseKey = roomName.replaceAll("\\d+$", "");
+        String numberPart = roomName.replaceAll("\\D", "");
+        int number = numberPart.isEmpty() ? 1 : Integer.parseInt(numberPart);
+
+        if (numberPart.isEmpty()) {
+            roomName = baseKey + "1";
+        }
+
+        String result = roomName;
+        while (rooms.containsKey(result)) {
+            Room room = rooms.get(result);
+            if (room.getPlayersCount() >= 50) {
+                result = baseKey + (++number);
+            } else {
+                break;
+            }
+        }
+        return result;
+    }
+
+    /**
      * Gets the tribe object by given tribe name.
      *
      * @param tribeName The given tribe name.
@@ -160,63 +250,6 @@ public class Server {
 
         this.cachedTribes.put(tribeName, myTribe);
         return myTribe;
-    }
-
-    /**
-     * Initializes the server.
-     */
-    public void startServer() {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            if (!this.isClosed) {
-                this.closeServer();
-            }
-        }));
-
-        if (!Application.getSwfInfo().ports.isEmpty()) {
-            ServerBootstrap bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool()));
-            ChannelPipeline pipeline = bootstrap.getPipeline();
-            pipeline.addLast("encoder", new Encoder());
-            pipeline.addLast("decoder", new Decoder());
-            pipeline.addLast("handler", new ClientHandler(this));
-
-            for (Integer port : Application.getSwfInfo().ports) {
-                this.channels.add(bootstrap.bind(new InetSocketAddress(port)));
-            }
-        } else {
-            Application.getLogger().error(Application.getTranslationManager().get("startfailure"));
-        }
-    }
-
-    /**
-     * Shutdowns the server.
-     */
-    public void closeServer() {
-        for (Timer timer : createCafeTopicTimer.values()) {
-            if (timer != null) {
-                timer.cancel();
-            }
-        }
-        for (Timer timer : createCafePostTimer.values()) {
-            if (timer != null) {
-                timer.cancel();
-            }
-        }
-        for (Timer timer : createAccountTimer.values()) {
-            if (timer != null) {
-                timer.cancel();
-            }
-        }
-
-        for (Client player : this.players.values()) {
-            player.saveDatabase();
-        }
-
-        for (Channel channel : this.channels) {
-            channel.unbind();
-        }
-
-        this.isClosed = true;
-        System.exit(0);
     }
 
     /**
@@ -251,13 +284,59 @@ public class Server {
     }
 
     /**
-     * Creates a new client session.
-     * @param channel The network channel associated with the client.
+     * Sends a message in the staff channel.
+     *
+     * @param channelId    The staff channel id.
+     * @param rawMessage   The message to send.
+     * @param isInt        Send the message in every staff player (Exceptions are #Modo and #Arbitre).
+     * @param clientName   Sender's nickname.
+     * @param clientLangue Sender's community.
      */
-    public void addClientSession(final Channel channel) {
-        Client client = new Client(this, channel);
-        this.clientSessions.put(channel.getId(), client);
-        channel.setAttachment(client);
+    public void sendStaffChannelMessage(int channelId, String rawMessage, boolean isInt, String clientName, String clientLangue) {
+        for (Client client : this.players.values()) {
+            if (channelId > 1 && channelId < 6 && client.hasStaffPermission("Modo", "StaffChannel") || client.hasStaffPermission("TrialModo", "StaffChannel")) {
+                if (isInt) {
+                    client.sendPacket(new C_StaffChannelMessage(channelId, clientName, rawMessage));
+                } else if (client.playerCommunity.equals(clientLangue)) {
+                    client.sendPacket(new C_StaffChannelMessage(channelId, clientName, rawMessage));
+                }
+            } else if (channelId == 9 && client.hasStaffPermission("FunCorp", "StaffChannel")) {
+                client.sendPacket(new C_StaffChannelMessage(channelId, clientName, rawMessage));
+            } else if (channelId == 8 && client.hasStaffPermission("MapCrew", "StaffChannel")) {
+                client.sendPacket(new C_StaffChannelMessage(channelId, clientName, rawMessage));
+            } else if (channelId == 7 && client.hasStaffPermission("LuaDev", "StaffChannel")) {
+                client.sendPacket(new C_StaffChannelMessage(channelId, clientName, rawMessage));
+            } else if (channelId == 10 && client.hasStaffPermission("FashionSquad", "StaffChannel")) {
+                client.sendPacket(new C_StaffChannelMessage(channelId, clientName, rawMessage));
+            } else if (channelId == 2 || channelId == 5 && client.hasStaffPermission("Arbitre", "StaffChannel")) {
+                client.sendPacket(new C_StaffChannelMessage(channelId, clientName, rawMessage));
+            }
+        }
+    }
+
+    /**
+     * Initializes the server.
+     */
+    public void startServer() {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (!this.isClosed) {
+                this.closeServer();
+            }
+        }));
+
+        if (!Application.getSwfInfo().ports.isEmpty()) {
+            ServerBootstrap bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool()));
+            ChannelPipeline pipeline = bootstrap.getPipeline();
+            pipeline.addLast("encoder", new Encoder());
+            pipeline.addLast("decoder", new Decoder());
+            pipeline.addLast("handler", new ClientHandler(this));
+
+            for (Integer port : Application.getSwfInfo().ports) {
+                this.channels.add(bootstrap.bind(new InetSocketAddress(port)));
+            }
+        } else {
+            Application.getLogger().error(Application.getTranslationManager().get("startfailure"));
+        }
     }
 
     /**

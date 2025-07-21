@@ -22,6 +22,8 @@
 		"totalcommands": "[Commands] Registered total commands: %s",
 		"commandfailedtoreg": "[Commands] Failed to register the command: %s",
 		"commandnotfound": "The command %s is not found",
-		"commandargsnotmet": "You need more arguments to use this command."
+		"commandargsnotmet": "You need more arguments to use this command.",
+		"abnormalactivity": "The player has abnormal activity %s -> %s",
+		"invalidscenetype": "Unhandled scene type (S_EnterLoadingScene/[105, 14]) : %d"
 	}
 }

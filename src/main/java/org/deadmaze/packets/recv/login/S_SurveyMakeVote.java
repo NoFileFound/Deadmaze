@@ -1,4 +1,4 @@
-package org.deadmaze.packets.recv.cafe;
+package org.deadmaze.packets.recv.login;
 
 // Imports
 import org.bytearray.ByteArray;
@@ -7,28 +7,36 @@ import org.deadmaze.Client;
 import org.deadmaze.enums.SceneLoading;
 import org.deadmaze.packets.RecvPacket;
 
+// Packets
+import org.deadmaze.packets.send.login.C_SurveyMakeVote;
+
 @SuppressWarnings("unused")
-public final class S_DeleteAllCafePlayerPosts implements RecvPacket {
+public final class S_SurveyMakeVote implements RecvPacket {
     @Override
     public void handle(Client client, int fingerPrint, ByteArray data) {
         if(client.sceneLoadingInfo != SceneLoading.LOADED || client.isGuest()) {
-            Application.getLogger().debug(Application.getTranslationManager().get("abnormalactivity", client.getPlayerName(), "S_DeleteAllCafePlayerPosts"));
+            Application.getLogger().debug(Application.getTranslationManager().get("abnormalactivity", client.getPlayerName(), "S_SurveyMakeVote"));
             client.getServer().getTempBlackList().add(client.getIpAddress());
             client.closeConnection();
             return;
         }
 
-        client.getParseCafeInstance().sendDeleteAllCafePlayerPosts(data.readInt(), data.readString());
+        int playerId = data.readInt();
+        for (Client player : client.getServer().getPlayers().values()) {
+            if (!player.isGuest() && player.getAccount().getId() == playerId && player.sceneLoadingInfo == SceneLoading.LOADED) {
+                player.sendPacket(new C_SurveyMakeVote(data.readByte()));
+            }
+        }
     }
 
     @Override
     public int getC() {
-        return 30;
+        return 26;
     }
 
     @Override
     public int getCC() {
-        return 48;
+        return 17;
     }
 
     @Override

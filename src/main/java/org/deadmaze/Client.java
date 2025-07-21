@@ -5,26 +5,45 @@ import com.maxmind.geoip2.record.Country;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import lombok.Getter;
+import lombok.Setter;
 import org.bytearray.ByteArray;
 import org.deadmaze.database.collections.Account;
+import org.deadmaze.database.collections.Sanction;
 import org.deadmaze.database.collections.Tribe;
+import org.deadmaze.enums.SceneLoading;
 import org.deadmaze.libraries.GeoIP;
+import org.deadmaze.libraries.Pair;
 import org.deadmaze.libraries.Timer;
 import org.deadmaze.modules.*;
 import org.deadmaze.packets.SendPacket;
 import org.deadmaze.packets.TribullePacket;
+import org.deadmaze.packets.send._105.C_105_14_54;
+import org.deadmaze.packets.send._105.C_InitializeProfileCreation;
+import org.deadmaze.packets.send._112.C_112_25;
+import org.deadmaze.packets.send._112.C_112_34;
 import org.deadmaze.utils.Utils;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 
 // Packets
+import org.deadmaze.packets.send._105.C_InitLoadingScreenScene;
+import org.deadmaze.packets.send._105.C_JoinDeadMazeRoom;
+import org.deadmaze.packets.send._116.C_SetSecretPassageTime;
+import org.deadmaze.packets.send.legacy.C_BanMessageLogin;
 import org.deadmaze.packets.send.login.C_PlayerIdentity;
 import org.deadmaze.packets.send.informations.C_ShopTimestamp;
+import org.deadmaze.packets.send.informations.C_VerifiedEmailAddress;
+import org.deadmaze.packets.send.room.info.C_RoomServer;
+import org.deadmaze.packets.send.room.info.C_RoomType;
+import org.deadmaze.packets.send.room.C_EnterRoom;
 import org.deadmaze.packets.send.tribulle.C_RejoindreCanalPublique;
 import org.deadmaze.packets.send.tribulle.C_SwitchNewTribulle;
 
-public class Client {
+public final class Client {
+    public SceneLoading sceneLoadingInfo;
+    public Pair<Integer, Integer> screenResolution;
     public byte silenceType;
     public int verCode;
     public int loginAttempts;
@@ -47,12 +66,14 @@ public class Client {
     @Getter private Account account;
     @Getter private int sessionId;
     @Getter private boolean isGuest;
-    @Getter private String ipAddress;
     @Getter private String playerName;
     @Getter private String roomName;
     @Getter final private Server server;
     @Getter final private String countryLangue;
     @Getter final private String countryName;
+    @Getter final private String ipAddress;
+    @Getter final private List<String> groupPlayers;
+    @Getter @Setter private Room room;
 
     // Modules
     @Getter private final ParseCafe parseCafeInstance;
@@ -70,7 +91,7 @@ public class Client {
      * @param channel The channel where player is connected.
      */
     public Client(Server server, Channel channel) {
-        Country country = GeoIP.getCountry(this.ipAddress);
+        Country country = GeoIP.getCountry(((InetSocketAddress) channel.getRemoteAddress()).getAddress().getHostAddress());
 
         this.server = server;
         this.channel = channel;
@@ -80,6 +101,7 @@ public class Client {
         this.isClosed = false;
         this.countryLangue = (country != null) ? country.getIsoCode() : "en";
         this.countryName = (country != null) ? country.getName() : "null (proxy)";
+        this.groupPlayers = new ArrayList<>();
 
         // Modules
         this.parseCafeInstance = new ParseCafe(this);
@@ -101,54 +123,6 @@ public class Client {
      */
     public long getLoginTime() {
         return (Utils.getUnixTime() - this.loginTime);
-    }
-
-    /**
-     * Sends the required packets on login.
-     * @param account The account (null for guests).
-     * @param playerName The player name.
-     * @param isNewRegistered Is new account.
-     */
-    public void sendLogin(Account account, String playerName, boolean isNewRegistered) {
-        this.account = account;
-        this.playerName = playerName;
-        this.loginAttempts = 0;
-        this.isGuest = false;
-        this.hasSent2FAEmail = false;
-        this.playerToken2FA = "";
-        this.loginTime = Utils.getUnixTime();
-        this.sessionId = ++this.server.lastClientSessionId;
-        this.parseCafeInstance.initCafeProperties();
-        this.server.getPlayers().put(this.playerName, this);
-
-        /// TODO: [112, 34] -> b'\x01\x01'
-        this.sendPacket(new C_PlayerIdentity(this));
-        this.sendPacket(new C_SwitchNewTribulle(true));
-        this.sendPacket(new C_RejoindreCanalPublique("dm-" + this.countryLangue));
-        this.sendPacket(new C_ShopTimestamp());
-        if(!this.isGuest) {
-            this.parseTribulleInstance.sendIdentificationService();
-
-            // tribe
-            if(!this.account.getTribeName().isEmpty()) {
-                Tribe myTribe = this.server.getTribeByName(this.account.getTribeName());
-                for(String member : myTribe.getTribeMembers()) {
-                    if(this.server.checkIsConnected(member)) {
-                        this.server.getPlayers().get(member).getParseTribulleInstance().sendTribeMemberModification(this.playerName, 1, this.server.getPlayers().get(member).isOpenTribe);
-                    }
-                }
-            }
-
-            if(!this.server.createCafeTopicTimer.containsKey(this.playerName)) {
-                this.server.createCafeTopicTimer.put(this.playerName, new Timer(Application.getPropertiesInfo().timers.create_cafe_topic.enable, Application.getPropertiesInfo().timers.create_cafe_topic.delay));
-            }
-
-            if(!this.server.createCafePostTimer.containsKey(this.playerName)) {
-                this.server.createCafePostTimer.put(this.playerName, new Timer(Application.getPropertiesInfo().timers.create_cafe_post.enable, Application.getPropertiesInfo().timers.create_cafe_post.delay));
-            }
-        }
-
-        ///this.sendPacket(new C_InitializeProfileCreation());
     }
 
     /**
@@ -214,6 +188,14 @@ public class Client {
 
         if(this.playerName != null) {
             this.server.getPlayers().remove(this.playerName);
+            this.server.getWhisperMessages().remove(this.playerName);
+
+            // remove him from the room
+            if (this.room != null) {
+                this.room.removePlayer(this);
+                this.room = null;
+            }
+
             if(!this.isGuest) {
                 this.saveDatabase();
 
@@ -258,6 +240,146 @@ public class Client {
     }
 
     /**
+     * Enters a given room.
+     * @param roomName The room name.
+     */
+    private void sendEnterRoom(String roomName) {
+        roomName = roomName.replace("<", "lt;");
+        if(!roomName.startsWith("*")) {
+            if(!(roomName.length() > 3 && roomName.charAt(2) == '-')) {
+                roomName = this.playerCommunity.toLowerCase() + "-" + roomName;
+            } else if(this.hasStaffPermission("MapCrew", "JoinCommunityRooms")) {
+                roomName = this.playerCommunity.toLowerCase() + roomName.substring(2);
+            }
+        }
+
+        if (this.room != null) {
+            this.room.removePlayer(this);
+        }
+
+        this.roomName = roomName;
+        this.sendPacket(new C_RoomServer(0));
+        this.sendPacket(new C_RoomType(roomName.contains("pretuto_") ? 61 : 60));
+        this.sendPacket(new C_JoinDeadMazeRoom(this.roomName));
+        this.sendPacket(new C_EnterRoom(this.roomName));
+        this.server.addClientToRoom(this, this.roomName);
+        if(!this.isGuest) {
+            // Notify friends when you change the room.
+            for(String friendName : this.account.getFriendList()) {
+                Client playerObj = this.server.getPlayers().get(friendName);
+                if(playerObj != null && playerObj.getAccount().getFriendList().contains(this.playerName) && playerObj.isOpenFriendList) {
+                    playerObj.getParseTribulleInstance().sendFriendModification(this.playerName, 1);
+                }
+            }
+
+            // notify all tribe members when you change the room.
+            if(!this.account.getTribeName().isEmpty()) {
+                Tribe myTribe = this.server.getTribeByName(this.account.getTribeName());
+                for(String member : myTribe.getTribeMembers()) {
+                    if(this.server.checkIsConnected(member) && !member.equals(this.playerName)) {
+                        this.server.getPlayers().get(member).getParseTribulleInstance().sendTribeMemberModification(this.playerName, -1, this.server.getPlayers().get(member).isOpenTribe);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Sends the scene loading on the player.
+     */
+    public void sendLoadScene() {
+        if(this.sceneLoadingInfo == SceneLoading.LOADING) {
+            return;
+        }
+
+        this.sceneLoadingInfo = SceneLoading.INIT;
+        this.sendPacket(new C_105_14_54(1683));
+        this.sendPacket(new C_InitLoadingScreenScene(1, 38));
+        this.sendPacket(new C_InitializeProfileCreation());
+    }
+
+    /**
+     * Sends the removal of scene loading on the player.
+     */
+    public void sendLoadRemoveScene() {
+        if(this.sceneLoadingInfo == SceneLoading.NONE) {
+            return;
+        }
+
+        this.sceneLoadingInfo = SceneLoading.NONE;
+    }
+
+    /**
+     * Sends the required packets on login.
+     * @param account The account (null for guests).
+     * @param playerName The player name.
+     * @param isRegistered Is the player's account new.
+     */
+    public void sendLogin(Account account, String playerName, boolean isRegistered) {
+        this.account = account;
+        this.playerName = playerName;
+        this.loginAttempts = 0;
+        this.isGuest = false;
+        this.hasSent2FAEmail = false;
+        this.playerToken2FA = "";
+        this.loginTime = Utils.getUnixTime();
+        this.roomName = (isRegistered) ? this.server.getRecommendedRoom("village") : this.server.getRecommendedRoom("pretuto_") + " / " + this.playerName;
+        //// TODO: Replace isRegistered with player outfit.
+        if (this.account != null) {
+            Sanction mySanction = this.server.getLatestSanction(playerName, "bandef");
+            if(mySanction == null) {
+                mySanction = this.server.getLatestSanction(playerName, "banjeu");
+            }
+
+            if(mySanction != null) {
+                if(mySanction.getIsPermanent()) {
+                    this.sendOldPacket(new C_BanMessageLogin(mySanction.getReason()));
+                } else {
+                    long hours = (mySanction.getExpirationDate() - Utils.getUnixTime()) / 3600;
+
+                    this.sendOldPacket(new C_BanMessageLogin(hours * 3600000, mySanction.getReason()));
+                }
+                return;
+            }
+        }
+
+        this.sessionId = ++this.server.lastClientSessionId;
+        this.parseCafeInstance.initCafeProperties();
+        this.server.getPlayers().put(this.playerName, this);
+        this.sendPacket(new C_112_25(0, 0, 0));
+        this.sendPacket(new C_112_34(true, 1));
+        this.sendPacket(new C_PlayerIdentity(this));
+        this.sendPacket(new C_SwitchNewTribulle(true));
+        this.sendPacket(new C_RejoindreCanalPublique("dm-" + this.countryLangue));
+        this.sendPacket(new C_ShopTimestamp());
+        this.sendPacket(new C_SetSecretPassageTime(false, 0, 0));
+        if(!this.isGuest) {
+            this.sendPacket(new C_VerifiedEmailAddress(true));
+            this.parseTribulleInstance.sendIdentificationService();
+
+            // tribe
+            if(!this.account.getTribeName().isEmpty()) {
+                Tribe myTribe = this.server.getTribeByName(this.account.getTribeName());
+                for(String member : myTribe.getTribeMembers()) {
+                    if(this.server.checkIsConnected(member)) {
+                        this.server.getPlayers().get(member).getParseTribulleInstance().sendTribeMemberModification(this.playerName, 1, this.server.getPlayers().get(member).isOpenTribe);
+                    }
+                }
+            }
+
+            if(!this.server.createCafeTopicTimer.containsKey(this.playerName)) {
+                this.server.createCafeTopicTimer.put(this.playerName, new Timer(Application.getPropertiesInfo().timers.create_cafe_topic.enable, Application.getPropertiesInfo().timers.create_cafe_topic.delay));
+            }
+
+            if(!this.server.createCafePostTimer.containsKey(this.playerName)) {
+                this.server.createCafePostTimer.put(this.playerName, new Timer(Application.getPropertiesInfo().timers.create_cafe_post.enable, Application.getPropertiesInfo().timers.create_cafe_post.delay));
+            }
+        }
+
+        this.sendEnterRoom(this.roomName);
+    }
+
+    /**
      * Broadcast a packet in current player.
      * @param packet The given packet.
      */
@@ -279,6 +401,36 @@ public class Client {
         _packet.writeBytes(data);
 
         Application.getLogger().debug(Application.getTranslationManager().get("sendpacket", this.ipAddress, packet.getC(), packet.getCC()));
+        this.channel.write(ChannelBuffers.wrappedBuffer(_packet.toByteArray()));
+    }
+
+    /**
+     * Broadcast a legacy (legacy) packet in current player.
+     * @param packet The given packet.
+     */
+    public void sendOldPacket(SendPacket packet) {
+        if(this.isClosed) {
+            throw new RuntimeException(Application.getTranslationManager().get("packeterror2"));
+        }
+
+        ByteArray data = new ByteArray();
+        ByteArray _packet = new ByteArray();
+
+        data.writeUnsignedShort((packet.getPacket().length > 0 ? packet.getPacket().length + 3 : 2));
+        data.writeString(String.valueOf((char) packet.getC()) + (char) packet.getCC(), false);
+        data.writeByte(1);
+        data.writeBytes(packet.getPacket());
+
+        int length;
+        for(length = data.getLength() + 2; length >= 128; length >>= 7) {
+            _packet.writeUnsignedByte(((length & 127) | 128));
+        }
+        _packet.writeUnsignedByte(length);
+        _packet.writeUnsignedByte(1);
+        _packet.writeUnsignedByte(1);
+        _packet.writeBytes(data.toByteArray());
+
+        Application.getLogger().debug(Application.getTranslationManager().get("sendlegacypacket", this.ipAddress, packet.getC(), packet.getCC(), _packet));
         this.channel.write(ChannelBuffers.wrappedBuffer(_packet.toByteArray()));
     }
 

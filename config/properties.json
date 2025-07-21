@@ -6,6 +6,7 @@
 	"allow_email": true,
 	"use_tag_system": true,
 	"login_attempts": 10,
+	"hazardousdamageindex": 24,
 	"timers": {
 		"keep_alive": {
 			"enable": true,

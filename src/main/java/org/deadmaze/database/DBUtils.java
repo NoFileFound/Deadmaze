@@ -44,6 +44,14 @@ public final class DBUtils {
     }
 
     /**
+     * Fetches all reports.
+     * @return A list of reports.
+     */
+    public static List<Report> findAllReports() {
+        return DBManager.getDataStore().find(Report.class).stream().toList();
+    }
+
+    /**
      * Searches for cafe posts made by given player.
      * @param playerName The player's name.
      * @return List of cafe posts.
@@ -95,6 +103,19 @@ public final class DBUtils {
     }
 
     /**
+     * Fetches all connection logs off given player.
+     * @param playerName The given playerName or IP Address.
+     * @param isUsingIPAddress Is using ip address instead of nickname.
+     * @return Connection logs
+     */
+    public static List<Loginlog> findConnectionLogs(String playerName, boolean isUsingIPAddress) {
+        if(isUsingIPAddress) {
+            return DBManager.getDataStore().find(Loginlog.class).filter(eq("ipAddress", playerName)).stream().limit(200).toList();
+        }
+        return DBManager.getDataStore().find(Loginlog.class).filter(eq("playerName", playerName)).stream().limit(200).toList();
+    }
+
+    /**
      * Searches for last active sanction by given name.
      * @param playerName The given player name.
      * @param punishType The given sanction type.
@@ -102,6 +123,15 @@ public final class DBUtils {
      */
     public static Sanction findLatestSanction(String playerName, String punishType) {
         return DBManager.getDataStore().find(Sanction.class).filter(eq("playerName", playerName), eq("type", punishType), eq("state", "Active")).iterator(new FindOptions().sort(Sort.ascending("createdDate"))).tryNext();
+    }
+
+    /**
+     * Fetches all sanctions of given player.
+     * @param playerName The player name.
+     * @return A list of sanction object.
+     */
+    public static List<Sanction> findSanctionsByAccount(String playerName) {
+        return DBManager.getDataStore().find(Sanction.class).filter(eq("playerName", playerName)).stream().toList();
     }
 
     /**

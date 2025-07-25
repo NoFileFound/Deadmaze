@@ -1,25 +1,25 @@
-package org.deadmaze.packets.send._105;
+package org.deadmaze.packets.send._112;
 
 // Imports
 import org.bytearray.ByteArray;
 import org.deadmaze.packets.SendPacket;
 
-public final class C_InitLoadingWorld implements SendPacket {
+public final class C_PlayerEmoji implements SendPacket {
     private final ByteArray byteArray = new ByteArray();
 
-    public C_InitLoadingWorld(int posX, int posY) {
-        this.byteArray.writeUnsignedShort(posX);
-        this.byteArray.writeUnsignedShort(posY);
+    public C_PlayerEmoji(int sessionId, int emojiId) {
+        this.byteArray.writeInt(sessionId);
+        this.byteArray.writeUnsignedByte(emojiId);
     }
 
     @Override
     public int getC() {
-        return 105;
+        return 112;
     }
 
     @Override
     public int getCC() {
-        return 36;
+        return 23;
     }
 
     @Override

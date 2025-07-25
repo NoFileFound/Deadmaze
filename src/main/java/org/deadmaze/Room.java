@@ -3,7 +3,12 @@ package org.deadmaze;
 // Imports
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import java.util.HashMap;
 import lombok.Getter;
+import org.deadmaze.packets.SendPacket;
+
+// Packets
+import org.deadmaze.packets.send.chat.C_ChatMessage;
 
 public final class Room {
     private final Server server;
@@ -35,7 +40,7 @@ public final class Room {
         this.players.put(player.getPlayerName(), player);
         player.sendLoadScene();
 
-
+        /// TODO: FINISH
     }
 
     /**
@@ -47,9 +52,57 @@ public final class Room {
 
         this.players.remove(player.getPlayerName());
         player.sendLoadRemoveScene();
+
+        /// TODO: FINISH
     }
 
+    /**
+     * Gets the player count in the room.
+     * @return The player count.
+     */
     public int getPlayersCount() {
         return this.players.size();
+    }
+
+    /**
+     * Broadcasts a packet for everyone in the room.
+     * @param packet The packet to send.
+     */
+    public void sendAll(SendPacket packet) {
+        for (Client player : new HashMap<>(this.players).values()) {
+            player.sendPacket(packet);
+        }
+    }
+
+    /**
+     * Broadcasts a packet for everyone in the room except the given player.
+     * @param senderPlayer The given player.
+     * @param packet The packet to send.
+     */
+    public void sendAllOthers(Client senderPlayer, SendPacket packet) {
+        for (Client player : new HashMap<>(this.players).values()) {
+            if (!player.equals(senderPlayer)) {
+                player.sendPacket(packet);
+            }
+        }
+    }
+
+    /**
+     * Sends a chat message to everyone in the current room.
+     * @param playerName The player name.
+     * @param message The message.
+     * @param isOnly Send message only to himself.
+     */
+    public void sendChatMessage(String playerName, String message, boolean isOnly) {
+        SendPacket packet = new C_ChatMessage(playerName, message);
+        if (isOnly) {
+            Client player = this.players.get(playerName);
+            if (player != null) {
+                player.sendPacket(packet);
+            }
+
+        } else {
+            this.players.values().forEach(player -> player.sendPacket(packet));
+        }
     }
 }

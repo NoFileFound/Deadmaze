@@ -1,6 +1,8 @@
 package org.deadmaze;
 
 // Imports
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -8,8 +10,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
-import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import lombok.Getter;
 import org.deadmaze.command.CommandLoader;
 import org.deadmaze.connection.ClientHandler;
@@ -17,6 +17,8 @@ import org.deadmaze.connection.Decoder;
 import org.deadmaze.connection.Encoder;
 import org.deadmaze.database.DBUtils;
 import org.deadmaze.database.collections.Account;
+import org.deadmaze.database.collections.Loginlog;
+import org.deadmaze.database.collections.Report;
 import org.deadmaze.database.collections.Sanction;
 import org.deadmaze.database.collections.Tribe;
 import org.deadmaze.libraries.Pair;
@@ -47,6 +49,7 @@ public final class Server {
     @Getter private final Object2ObjectMap<String, List<String>> chats;
     @Getter private final Object2ObjectMap<String, Object2ObjectMap<String, Deque<String[]>>> whisperMessages;
     @Getter private final Object2ObjectMap<String, Object2ObjectMap<String, Deque<String[]>>> chatMessages;
+    @Getter private final Object2ObjectMap<String, Report> gameReports;
 
     // Cache
     @Getter private Object2ObjectMap<String, Account> cachedAccounts;
@@ -74,6 +77,7 @@ public final class Server {
         this.chats = new Object2ObjectOpenHashMap<>();
         this.whisperMessages = new Object2ObjectOpenHashMap<>();
         this.chatMessages = new Object2ObjectOpenHashMap<>();
+        this.gameReports = new Object2ObjectOpenHashMap<>();
 
         // Cache
         this.cachedAccounts = new Object2ObjectOpenHashMap<>();
@@ -136,12 +140,28 @@ public final class Server {
             player.saveDatabase();
         }
 
+        for(var reports : this.getGameReports().values()) {
+            reports.save();
+        }
+
         for (Channel channel : this.channels) {
             channel.unbind();
         }
 
         this.isClosed = true;
         System.exit(0);
+    }
+
+    /**
+     * Disconnects every player that have the given ip address.
+     * @param ip The given IP address.
+     */
+    public void disconnectIPAddress(String ip, Client target) {
+        for (Client player : new ArrayList<>(this.players.values())) {
+            if (player.getIpAddress().equals(ip) && player != target) {
+                player.closeConnection();
+            }
+        }
     }
 
     /**
@@ -263,6 +283,18 @@ public final class Server {
     }
 
     /**
+     * Saves a new loginlog every time a player login.
+     *
+     * @param playerName The player name.
+     * @param ipAddress  The player's IP Address.
+     * @param ipCountry  The player's country.
+     * @param langue     The player's community.
+     */
+    public void recordLoginLog(String playerName, String ipAddress, String ipCountry, String langue) {
+        new Loginlog(playerName, Utils.getUnixTime(), ipAddress, ipCountry, langue);
+    }
+
+    /**
      * Sends a message in #Server channel.
      *
      * @param message The message to send.
@@ -323,6 +355,12 @@ public final class Server {
                 this.closeServer();
             }
         }));
+
+        // load modopwet reports.
+        List<Report> reports = DBUtils.findAllReports();
+        for(Report report : reports) {
+            this.gameReports.put(report.getPlayerName(), report);
+        }
 
         if (!Application.getSwfInfo().ports.isEmpty()) {
             ServerBootstrap bootstrap = new ServerBootstrap(new NioServerSocketChannelFactory(Executors.newCachedThreadPool(), Executors.newCachedThreadPool()));

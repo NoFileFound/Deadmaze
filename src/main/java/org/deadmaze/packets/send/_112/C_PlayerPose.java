@@ -4,14 +4,14 @@ package org.deadmaze.packets.send._112;
 import org.bytearray.ByteArray;
 import org.deadmaze.packets.SendPacket;
 
-/// TODO: Investigate the packet name and arguments. [112, 25]
-public final class C_112_25 implements SendPacket {
+public final class C_PlayerPose implements SendPacket {
     private final ByteArray byteArray = new ByteArray();
 
-    public C_112_25(int arg1, int arg2, int arg3) {
-        this.byteArray.writeInt(arg1);
-        this.byteArray.writeInt(arg2);
-        this.byteArray.writeInt(arg3);
+    public C_PlayerPose(int sessionId, int poseId, boolean isLooping) {
+        this.byteArray.writeInt(sessionId);
+        this.byteArray.writeUnsignedByte(poseId);
+        this.byteArray.writeBoolean(isLooping);
+        this.byteArray.writeBoolean(isLooping);
     }
 
     @Override
@@ -21,7 +21,7 @@ public final class C_112_25 implements SendPacket {
 
     @Override
     public int getCC() {
-        return 25;
+        return 30;
     }
 
     @Override

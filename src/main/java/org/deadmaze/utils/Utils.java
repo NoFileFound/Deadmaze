@@ -2,6 +2,13 @@ package org.deadmaze.utils;
 
 // Imports
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -113,6 +120,19 @@ public class Utils {
     }
 
     /**
+     * Gets the content from the file name.
+     * @param filename The file name.
+     * @return Array of bytes.
+     */
+    public static byte[] getResourceFileContent(String filename) {
+        try {
+            return Files.readAllBytes(Path.of("resources/" + filename));
+        } catch (IOException e) {
+            return new byte[0];
+        }
+    }
+
+    /**
      * Gets the time in minutes.
      */
     public static int getTribulleTime() {
@@ -143,5 +163,16 @@ public class Utils {
             text = text.replaceAll("(?i)\\b" + Pattern.quote(word) + "\\b", Matcher.quoteReplacement(replacement));
         }
         return text;
+    }
+
+    /**
+     * Formats the timestamp into date.
+     * @param unixTime Unix timestamp.
+     * @param pattern Pattern to format.
+     * @return A formated date.
+     */
+    public static String formatUnixTime(long unixTime, String pattern) {
+        LocalDateTime dateTime = Instant.ofEpochSecond(unixTime).atZone(ZoneId.systemDefault()).toLocalDateTime();
+        return dateTime.format(DateTimeFormatter.ofPattern(pattern));
     }
 }

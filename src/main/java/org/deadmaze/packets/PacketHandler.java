@@ -1,9 +1,9 @@
 package org.deadmaze.packets;
 
 // Imports
-import lombok.Getter;
 import java.util.HashMap;
 import java.util.Map;
+import lombok.Getter;
 import org.deadmaze.Application;
 
 @Getter

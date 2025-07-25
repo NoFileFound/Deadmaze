@@ -1,26 +1,26 @@
-package org.deadmaze.packets.send._112;
+package org.deadmaze.packets.send.chat;
 
 // Imports
 import org.bytearray.ByteArray;
 import org.deadmaze.packets.SendPacket;
 
-/// TODO: Investigate the packet name and arguments. [112, 34]
-public final class C_112_34 implements SendPacket {
+public final class C_ChatMessage implements SendPacket {
     private final ByteArray byteArray = new ByteArray();
 
-    public C_112_34(boolean arg1, int arg2) {
-        this.byteArray.writeBoolean(arg1);
-        this.byteArray.writeUnsignedByte(arg2);
+    public C_ChatMessage(String playerName, String rawMessage) {
+        this.byteArray.writeString(playerName);
+        this.byteArray.writeString(rawMessage);
+        this.byteArray.writeBoolean(false);
     }
 
     @Override
     public int getC() {
-        return 112;
+        return 6;
     }
 
     @Override
     public int getCC() {
-        return 34;
+        return 6;
     }
 
     @Override

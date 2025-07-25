@@ -4,8 +4,10 @@ package org.deadmaze;
 import com.maxmind.geoip2.record.Country;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import lombok.Getter;
 import lombok.Setter;
 import org.bytearray.ByteArray;
@@ -15,22 +17,24 @@ import org.deadmaze.database.collections.Tribe;
 import org.deadmaze.enums.SceneLoading;
 import org.deadmaze.libraries.GeoIP;
 import org.deadmaze.libraries.Pair;
+import org.deadmaze.libraries.SrcRandom;
 import org.deadmaze.libraries.Timer;
 import org.deadmaze.modules.*;
 import org.deadmaze.packets.SendPacket;
 import org.deadmaze.packets.TribullePacket;
-import org.deadmaze.packets.send._105.C_105_14_54;
-import org.deadmaze.packets.send._105.C_InitializeProfileCreation;
-import org.deadmaze.packets.send._112.C_112_25;
-import org.deadmaze.packets.send._112.C_112_34;
 import org.deadmaze.utils.Utils;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
 
 // Packets
+import org.deadmaze.packets.send._105.C_105_14_54;
+import org.deadmaze.packets.send._105.C_AddPlayerToWorld;
 import org.deadmaze.packets.send._105.C_InitLoadingScreenScene;
+import org.deadmaze.packets.send._105.C_InitializeProfileCreation;
 import org.deadmaze.packets.send._105.C_JoinDeadMazeRoom;
+import org.deadmaze.packets.send._112.C_PlayerAddPoses;
 import org.deadmaze.packets.send._116.C_SetSecretPassageTime;
+import org.deadmaze.packets.send.chat.C_ServerMessage;
 import org.deadmaze.packets.send.legacy.C_BanMessageLogin;
 import org.deadmaze.packets.send.login.C_PlayerIdentity;
 import org.deadmaze.packets.send.informations.C_ShopTimestamp;
@@ -42,17 +46,24 @@ import org.deadmaze.packets.send.tribulle.C_RejoindreCanalPublique;
 import org.deadmaze.packets.send.tribulle.C_SwitchNewTribulle;
 
 public final class Client {
+    public Client lastWatchedClient;
     public SceneLoading sceneLoadingInfo;
     public Pair<Integer, Integer> screenResolution;
+    public Pair<Integer, Integer> playerPosition = new Pair<>(0, 0);
     public byte silenceType;
     public int verCode;
     public int loginAttempts;
+    public boolean isHidden = false;
+    public boolean isMumuted;
+    public boolean isSubscribedModoNotifications;
     public boolean isOpenCafe;
     public boolean isOpenFriendList;
+    public boolean isOpenModopwet;
     public boolean isOpenTribe;
     public boolean hasSent2FAEmail = false;
-    public String currentMarriageInvite;
-    public String currentTribeInvite;
+    public String currentMarriageInvite = "";
+    public String currentMessage = "";
+    public String currentTribeInvite = "";
     public String osLanguage;
     public String osName;
     public String playerCommunity;
@@ -68,16 +79,22 @@ public final class Client {
     @Getter private boolean isGuest;
     @Getter private String playerName;
     @Getter private String roomName;
+    @Getter private String lastRoomName;
     @Getter final private Server server;
     @Getter final private String countryLangue;
     @Getter final private String countryName;
     @Getter final private String ipAddress;
     @Getter final private List<String> groupPlayers;
+    @Getter private final List<String> modopwetChatNotificationCommunities;
+    @Getter private final Map<String, Integer> modoCommunitiesCount;
+    @Getter private final ArrayList<Client> currentWatchers;
     @Getter @Setter private Room room;
 
     // Modules
+    @Getter private final ParseAbilities parseAbilitiesInstance;
     @Getter private final ParseCafe parseCafeInstance;
     @Getter private final ParseTribulle parseTribulleInstance;
+    @Getter private final ParseModopwet parseModopwetInstance;
 
     // Timers
     public Timer keepAliveTimer;
@@ -102,10 +119,15 @@ public final class Client {
         this.countryLangue = (country != null) ? country.getIsoCode() : "en";
         this.countryName = (country != null) ? country.getName() : "null (proxy)";
         this.groupPlayers = new ArrayList<>();
+        this.modopwetChatNotificationCommunities = new ArrayList<>();
+        this.modoCommunitiesCount = new HashMap<>();
+        this.currentWatchers = new ArrayList<>();
 
         // Modules
+        this.parseAbilitiesInstance = new ParseAbilities(this);
         this.parseCafeInstance = new ParseCafe(this);
         this.parseTribulleInstance = new ParseTribulle(this);
+        this.parseModopwetInstance = new ParseModopwet(this);
 
         // Timers
         this.keepAliveTimer = new Timer(Application.getPropertiesInfo().timers.keep_alive.enable, Application.getPropertiesInfo().timers.keep_alive.delay);
@@ -196,6 +218,33 @@ public final class Client {
                 this.room = null;
             }
 
+            // Modopwet watchers
+            if(this.server.getGameReports().containsKey(this.playerName) && !this.server.getGameReports().get(this.playerName).getIsDeleted()) {
+                for(Client player : this.server.getPlayers().values()) {
+                    if(player.isSubscribedModoNotifications && player.getModopwetChatNotificationCommunities().contains(this.playerCommunity)) {
+                        player.sendPacket(new C_ServerMessage(true, String.format("<ROSE>[Modopwet] [%s]</ROSE> <BV>%s</BV> has been disconnected from the game.", this.playerCommunity, this.playerName)));
+                    } else if(player.isOpenModopwet) {
+                        player.getParseModopwetInstance().sendOpenModopwet(true);
+                    }
+                }
+            }
+
+            if(!this.currentWatchers.isEmpty()) {
+                for(Client watcher : this.currentWatchers) {
+                    watcher.lastWatchedClient = null;
+                    watcher.parseModopwetInstance.sendWatchPlayer("");
+                    watcher.isHidden = false;
+                    watcher.sendEnterRoom(this.server.getRecommendedRoom(""));
+
+                }
+                this.currentWatchers.clear();
+            }
+
+            if(this.lastWatchedClient != null) {
+                this.lastWatchedClient.currentWatchers.remove(this);
+                this.lastWatchedClient = null;
+            }
+
             if(!this.isGuest) {
                 this.saveDatabase();
 
@@ -243,7 +292,11 @@ public final class Client {
      * Enters a given room.
      * @param roomName The room name.
      */
-    private void sendEnterRoom(String roomName) {
+    public void sendEnterRoom(String roomName) {
+        if(this.lastWatchedClient != null && !roomName.equals(this.lastWatchedClient.getRoomName())) {
+            return;
+        }
+
         roomName = roomName.replace("<", "lt;");
         if(!roomName.startsWith("*")) {
             if(!(roomName.length() > 3 && roomName.charAt(2) == '-')) {
@@ -254,6 +307,7 @@ public final class Client {
         }
 
         if (this.room != null) {
+            this.lastRoomName = this.room.getRoomName();
             this.room.removePlayer(this);
         }
 
@@ -282,6 +336,24 @@ public final class Client {
                 }
             }
         }
+
+        if(this.server.getGameReports().containsKey(this.playerName)) {
+            if(!this.currentWatchers.isEmpty()) {
+                for(Client watcher : this.currentWatchers) {
+                    watcher.sendEnterRoom(this.getRoom().getRoomName());
+                }
+            } else if(this.server.getGameReports().containsKey(this.playerName) && !this.server.getGameReports().get(this.playerName).getIsDeleted() && this.lastRoomName != null) {
+                for(Client player : this.server.getPlayers().values()) {
+                    if(player.isSubscribedModoNotifications && player.getModopwetChatNotificationCommunities().contains(this.playerCommunity) && !player.getCurrentWatchers().contains(this.lastWatchedClient)) {
+                        player.sendPacket(new C_ServerMessage(true, String.format("<ROSE>[Modopwet]</ROSE> The player <BV>%s</BV> left the room <N>[%s]</N> and went to the room <N>[%s]</N>. %s", this.playerName, this.lastRoomName, this.getRoom().getRoomName(), this.room.getRoomName().equals(player.getRoom().getRoomName()) ? "" : String.format(" (<CEP><a href='event:join;%s'>Watch</a></CEP> - <CEP><a href='event:follow;%s'>Follow</a></CEP>)", this.playerName, this.playerName))));
+                    }
+                }
+            }
+        }
+
+        if(this.lastWatchedClient != null && this.lastWatchedClient.lastRoomName != null) {
+            this.sendPacket(new C_ServerMessage(true, String.format("<ROSE>[Modopwet]</ROSE> The player <BV>%s</BV> left the room <N>[%s]</N> and went to the room <N>[%s]</N>. %s", this.lastWatchedClient.playerName, this.lastWatchedClient.lastRoomName, this.lastWatchedClient.getRoom().getRoomName(), "(<CEP><a href='event:stopfollow'>Stop following</a></CEP>)")));
+        }
     }
 
     /**
@@ -293,9 +365,11 @@ public final class Client {
         }
 
         this.sceneLoadingInfo = SceneLoading.INIT;
-        this.sendPacket(new C_105_14_54(1683));
-        this.sendPacket(new C_InitLoadingScreenScene(1, 38));
-        this.sendPacket(new C_InitializeProfileCreation());
+        this.sendPacket(new C_105_14_54(SrcRandom.RandomNumber(1511, 4578)));
+        this.sendPacket(new C_InitLoadingScreenScene(50, 50));
+        if(this.account.getPlayerLook().isEmpty()) {
+            this.sendPacket(new C_InitializeProfileCreation());
+        }
     }
 
     /**
@@ -323,8 +397,7 @@ public final class Client {
         this.hasSent2FAEmail = false;
         this.playerToken2FA = "";
         this.loginTime = Utils.getUnixTime();
-        this.roomName = (isRegistered) ? this.server.getRecommendedRoom("village") : this.server.getRecommendedRoom("pretuto_") + " / " + this.playerName;
-        //// TODO: Replace isRegistered with player outfit.
+        this.roomName = (!this.account.getPlayerLook().isEmpty()) ? this.server.getRecommendedRoom("village") : this.server.getRecommendedRoom("pretuto_") + " / " + this.playerName;
         if (this.account != null) {
             Sanction mySanction = this.server.getLatestSanction(playerName, "bandef");
             if(mySanction == null) {
@@ -345,14 +418,15 @@ public final class Client {
 
         this.sessionId = ++this.server.lastClientSessionId;
         this.parseCafeInstance.initCafeProperties();
+        this.server.recordLoginLog(playerName, ipAddress, this.countryName, this.playerCommunity);
         this.server.getPlayers().put(this.playerName, this);
-        this.sendPacket(new C_112_25(0, 0, 0));
-        this.sendPacket(new C_112_34(true, 1));
         this.sendPacket(new C_PlayerIdentity(this));
         this.sendPacket(new C_SwitchNewTribulle(true));
         this.sendPacket(new C_RejoindreCanalPublique("dm-" + this.countryLangue));
         this.sendPacket(new C_ShopTimestamp());
         this.sendPacket(new C_SetSecretPassageTime(false, 0, 0));
+        this.parseAbilitiesInstance.sendInitAbilities();
+        this.sendPacket(new C_PlayerAddPoses(this.account.getPlayerPoses()));
         if(!this.isGuest) {
             this.sendPacket(new C_VerifiedEmailAddress(true));
             this.parseTribulleInstance.sendIdentificationService();
@@ -377,6 +451,16 @@ public final class Client {
         }
 
         this.sendEnterRoom(this.roomName);
+        if(this.server.getGameReports().containsKey(this.playerName) && !this.server.getGameReports().get(this.playerName).getIsDeleted()) {
+            this.server.getGameReports().get(this.playerName).setPlayerCommunity(this.playerCommunity);
+            for(Client player : this.server.getPlayers().values()) {
+                if(player.isSubscribedModoNotifications && player.getModopwetChatNotificationCommunities().contains(this.playerCommunity)) {
+                    player.sendPacket(new C_ServerMessage(true, String.format("<ROSE>[Modopwet] [%s]</ROSE> <BV>%s</BV> has been connected on the game in room [<N>%s</N>] %s", this.playerCommunity, this.playerName, this.room.getRoomName(), this.room.getRoomName().equals(player.getRoom().getRoomName()) ? "" : String.format(" (<CEP><a href='event:join;%s'>Watch</a></CEP> - <CEP><a href='event:follow;%s'>Follow</a></CEP>)", this.playerName, this.playerName))));
+                } else if(player.isOpenModopwet) {
+                    player.getParseModopwetInstance().sendOpenModopwet(true);
+                }
+            }
+        }
     }
 
     /**
@@ -432,6 +516,19 @@ public final class Client {
 
         Application.getLogger().debug(Application.getTranslationManager().get("sendlegacypacket", this.ipAddress, packet.getC(), packet.getCC(), _packet));
         this.channel.write(ChannelBuffers.wrappedBuffer(_packet.toByteArray()));
+    }
+
+    /**
+     * Send the all players in the room when a new player joins.
+     */
+    public void sendRoomPlayers() {
+        for(Client player : this.room.getPlayers().values()) {
+            if(player != this) {
+                this.sendPacket(new C_AddPlayerToWorld(player));
+            }
+        }
+
+        this.sendPacket(new C_AddPlayerToWorld(this));
     }
 
     /**

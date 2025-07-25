@@ -33,6 +33,20 @@ public final class Account {
     @Setter private String tribeName;
     @Setter private TribeRank tribeRank;
     @Setter private int reputationPoints;
+    @Setter private int restPoints;
+    @Setter private int restPointsMax;
+    @Setter private int thirstPoints;
+    @Setter private int thirstPointsMax;
+    @Setter private int foodPoints;
+    @Setter private int foodPointsMax;
+    @Setter private int titleNumber;
+    @Setter private String playerLook;
+    @Setter private List<Integer> playerPoses;
+    @Setter private int threatLevel;
+    @Setter private int threatLevelXp;
+    @Setter private int threatLevelNextXp;
+    private final List<String> modoCommunities;
+    @Setter private short playerKarma;
 
     /**
      * Creates a new player.
@@ -60,6 +74,20 @@ public final class Account {
         this.tribeName = "";
         this.tribeRank = new TribeRank();
         this.reputationPoints = 0;
+        this.restPoints = 65;
+        this.restPointsMax = 100;
+        this.thirstPoints = 75;
+        this.thirstPointsMax = 100;
+        this.foodPoints = 80;
+        this.foodPointsMax = 100;
+        this.titleNumber = 0;
+        this.playerLook = "";
+        this.playerPoses = new ArrayList<>();
+        this.threatLevel = 0;
+        this.threatLevelXp = 0;
+        this.threatLevelNextXp = 0;
+        this.modoCommunities = new ArrayList<>();
+        this.playerKarma = 0;
     }
 
     /**
